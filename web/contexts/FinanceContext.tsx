@@ -31,8 +31,7 @@ function mapCategory(cat: any): Category {
     id: String(cat.id),
     name: cat.name,
     type: cat.type,
-    // Frontend expects color and budget, but backend doesn't provide them
-    color: '#6366f1', // Default color
+    color: cat.color || '#6366f1',
     budget: undefined,
   };
 }
@@ -149,6 +148,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newCat = await financeService.createCategory({
       name: c.name,
       type: c.type,
+      color: c.color,
     });
     const mapped = mapCategory(newCat);
     setCategories(prev => [...prev, mapped]);
@@ -159,6 +159,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const updated = await financeService.updateCategory(numId, {
       name: c.name,
       type: c.type,
+      color: c.color,
     });
     const mapped = mapCategory(updated);
     setCategories(prev => prev.map(item => (item.id === id ? mapped : item)));
