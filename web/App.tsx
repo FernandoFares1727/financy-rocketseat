@@ -9,6 +9,7 @@ import Transactions from './pages/Transactions';
 import Categories from './pages/Categories';
 import Flow from './pages/Flow';
 import Goals from './pages/Goals';
+import NotFound from './pages/NotFound';
 
 const App: React.FC = () => {
   return (
@@ -23,6 +24,7 @@ const App: React.FC = () => {
               <Route path="flow" element={<Flow />} />
               <Route path="goals" element={<Goals />} />
             </Route>
+            <Route path="/notfound" element={<NotFound />} />
           </Routes>
         </HashRouter>
       </FinanceProvider>

@@ -80,6 +80,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setGoals(goalData);
     } catch (error) {
       console.error('Failed to fetch data', error);
+      // If axios couldn't reach the server (no response), redirect to NotFound page
+      const e: any = error;
+      if (e && (e.isAxiosError === true) && !e.response) {
+        // Use hash-based navigation since app uses HashRouter
+        window.location.hash = '#/notfound';
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -154,20 +161,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       type: c.type,
     });
     const mapped = mapCategory(updated);
+    setCategories(prev => prev.map(item => (item.id === id ? mapped : item)));
 
-    setCategories(prev =>
-      prev.map(item => (item.id === id ? mapped : item))
-    );
-
-    // Update transactions that use this category
-    const categoryMap = new Map(categories.map(cat => [cat.id, cat]));
-    categoryMap.set(mapped.id, mapped);
-
-    setTransactions(prev =>
-      prev.map(t =>
-        t.categoryId === id ? { ...t, ...mapTransaction({ ...t, categoryId: Number(id) }, categoryMap) } : t
-      )
-    );
+    // Update transactions that use this category: only replace the `category` field
+    setTransactions(prev => prev.map(t => (t.categoryId === mapped.id ? { ...t, category: mapped } : t)));
   };
 
   const removeCategory = async (id: string) => {
