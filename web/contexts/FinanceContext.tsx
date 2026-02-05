@@ -32,7 +32,7 @@ function mapCategory(cat: any): Category {
     name: cat.name,
     type: cat.type,
     color: cat.color || '#6366f1',
-    budget: undefined,
+    budget: cat.budget ? Number(cat.budget) : undefined,
   };
 }
 
@@ -149,6 +149,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name: c.name,
       type: c.type,
       color: c.color,
+      budget: c.budget,
     });
     const mapped = mapCategory(newCat);
     setCategories(prev => [...prev, mapped]);
@@ -160,6 +161,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name: c.name,
       type: c.type,
       color: c.color,
+      budget: c.budget,
     });
     const mapped = mapCategory(updated);
     setCategories(prev => prev.map(item => (item.id === id ? mapped : item)));
@@ -172,9 +174,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const numId = Number(id);
     await financeService.deleteCategory(numId);
     setCategories(prev => prev.filter(c => c.id !== id));
-    setTransactions(prev =>
-      prev.map(t => (t.categoryId === id ? { ...t, category: undefined } : t))
-    );
+    // Remove all transactions associated with this category (due to cascade delete)
+    setTransactions(prev => prev.filter(t => t.categoryId !== id));
   };
 
   const addGoal = async (g: Omit<SavingsGoal, 'id'>) => {

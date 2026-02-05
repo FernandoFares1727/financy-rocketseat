@@ -10,10 +10,10 @@ export const categoryService = {
     if (!cat) throw new ApiError(404, 'Category not found');
     return cat;
   },
-  create: async (data: { name: string; type: 'INCOME' | 'EXPENSE'; color?: string }) => {
+  create: async (data: { name: string; type: 'INCOME' | 'EXPENSE'; color?: string; budget?: number }) => {
     return categoryRepository.create(data);
   },
-  update: async (id: number, data: { name?: string; type?: 'INCOME' | 'EXPENSE'; color?: string }) => {
+  update: async (id: number, data: { name?: string; type?: 'INCOME' | 'EXPENSE'; color?: string; budget?: number }) => {
     await categoryService.get(id);
     return categoryRepository.update(id, data);
   },

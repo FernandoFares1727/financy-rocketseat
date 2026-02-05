@@ -20,12 +20,12 @@ export async function getCategoryById(id: number) {
   return response.data;
 }
 
-export async function createCategory(data: { name: string; type: 'INCOME' | 'EXPENSE'; color?: string }) {
+export async function createCategory(data: { name: string; type: 'INCOME' | 'EXPENSE'; color?: string; budget?: number }) {
   const response = await api.post('/categories', data);
   return response.data;
 }
 
-export async function updateCategory(id: number, data: Partial<{ name: string; type: 'INCOME' | 'EXPENSE'; color: string }>) {
+export async function updateCategory(id: number, data: Partial<{ name: string; type: 'INCOME' | 'EXPENSE'; color: string; budget: number }>) {
   const response = await api.put(`/categories/${id}`, data);
   return response.data;
 }
