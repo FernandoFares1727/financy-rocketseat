@@ -37,6 +37,20 @@ function mapCategory(cat: any): Category {
 }
 
 /**
+ * Map backend goal to frontend format
+ */
+function mapGoal(goal: any): SavingsGoal {
+  return {
+    id: String(goal.id),
+    name: goal.name,
+    targetAmount: Number(goal.targetAmount),
+    currentAmount: Number(goal.currentAmount),
+    deadline: goal.deadline,
+    color: goal.color,
+  };
+}
+
+/**
  * Map backend transaction to frontend format
  */
 function mapTransaction(tx: any, categoryMap: Map<string, Category>): Transaction {
@@ -76,7 +90,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setTransactions(mappedTransactions);
       setCategories(mappedCategories);
-      setGoals(goalData);
+      setGoals(goalData.map(mapGoal));
     } catch (error) {
       console.error('Failed to fetch data', error);
       // If axios couldn't reach the server (no response), redirect to NotFound page
@@ -179,17 +193,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addGoal = async (g: Omit<SavingsGoal, 'id'>) => {
-    const newGoal: SavingsGoal = { ...g, id: Math.random().toString(36).substr(2, 9) };
-    setGoals(prev => [...prev, newGoal]);
+    const newGoal = await financeService.createGoal({
+      name: g.name,
+      targetAmount: g.targetAmount,
+      currentAmount: g.currentAmount,
+      deadline: g.deadline,
+      color: g.color,
+    });
+    const mapped = mapGoal(newGoal);
+    setGoals(prev => [...prev, mapped]);
   };
 
   const editGoal = async (id: string, g: Partial<SavingsGoal>) => {
-    setGoals(prev =>
-      prev.map(item => (item.id === id ? { ...item, ...g } : item))
-    );
+    const numId = Number(id);
+    const updated = await financeService.updateGoal(numId, {
+      name: g.name,
+      targetAmount: g.targetAmount,
+      currentAmount: g.currentAmount,
+      deadline: g.deadline,
+      color: g.color,
+    });
+    const mapped = mapGoal(updated);
+    setGoals(prev => prev.map(item => (item.id === id ? mapped : item)));
   };
 
   const removeGoal = async (id: string) => {
+    const numId = Number(id);
+    await financeService.deleteGoal(numId);
     setGoals(prev => prev.filter(g => g.id !== id));
   };
 

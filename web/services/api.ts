@@ -67,6 +67,46 @@ export async function deleteTransaction(id: number) {
   await api.delete(`/transactions/${id}`);
 }
 
+// ===== Goals =====
+export async function getGoals() {
+  const response = await api.get('/goals');
+  return response.data;
+}
+
+export async function getGoalById(id: number) {
+  const response = await api.get(`/goals/${id}`);
+  return response.data;
+}
+
+export async function createGoal(data: {
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+  color: string;
+}) {
+  const response = await api.post('/goals', data);
+  return response.data;
+}
+
+export async function updateGoal(
+  id: number,
+  data: Partial<{
+    name: string;
+    targetAmount: number;
+    currentAmount: number;
+    deadline: string;
+    color: string;
+  }>
+) {
+  const response = await api.put(`/goals/${id}`, data);
+  return response.data;
+}
+
+export async function deleteGoal(id: number) {
+  await api.delete(`/goals/${id}`);
+}
+
 // Exported as service object for compatibility with existing code
 export const financeService = {
   getCategories,
@@ -79,8 +119,10 @@ export const financeService = {
   createTransaction,
   updateTransaction,
   deleteTransaction,
-  getGoals: async () => [], // Goals not implemented in backend yet
-  createGoal: async () => null,
-  updateGoal: async () => null,
-  deleteGoal: async () => null,
+  getGoals,
+  getGoalById,
+  createGoal,
+  updateGoal,
+  deleteGoal,
 };
+
