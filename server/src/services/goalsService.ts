@@ -17,23 +17,23 @@ export class GoalsService {
 
   async getById(id: number) {
     const goal = await goalsRepository.getById(id);
-    if (!goal) throw new ApiError('Goal not found', 404);
+    if (!goal) throw new ApiError(404, 'Goal not found');
     return this.formatGoal(goal);
   }
 
   async create(data: GoalPayload) {
     // Validate input
     if (!data.name || !data.name.trim()) {
-      throw new ApiError('Goal name is required', 400);
+      throw new ApiError(400, 'Goal name is required');
     }
     if (data.targetAmount <= 0) {
-      throw new ApiError('Target amount must be greater than 0', 400);
+      throw new ApiError(400, 'Target amount must be greater than 0');
     }
     if (data.currentAmount < 0) {
-      throw new ApiError('Current amount cannot be negative', 400);
+      throw new ApiError(400, 'Current amount cannot be negative');
     }
     if (data.currentAmount > data.targetAmount) {
-      throw new ApiError('Current amount cannot exceed target amount', 400);
+      throw new ApiError(400, 'Current amount cannot exceed target amount');
     }
 
     const goal = await goalsRepository.create({
@@ -48,24 +48,24 @@ export class GoalsService {
 
   async update(id: number, data: Partial<GoalPayload>) {
     const goal = await goalsRepository.getById(id);
-    if (!goal) throw new ApiError('Goal not found', 404);
+    if (!goal) throw new ApiError(404, 'Goal not found');
 
     // Validate only if provided
     if (data.name !== undefined && !data.name.trim()) {
-      throw new ApiError('Goal name cannot be empty', 400);
+      throw new ApiError(400, 'Goal name cannot be empty');
     }
     if (data.targetAmount !== undefined && data.targetAmount <= 0) {
-      throw new ApiError('Target amount must be greater than 0', 400);
+      throw new ApiError(400, 'Target amount must be greater than 0');
     }
     if (data.currentAmount !== undefined && data.currentAmount < 0) {
-      throw new ApiError('Current amount cannot be negative', 400);
+      throw new ApiError(400, 'Current amount cannot be negative');
     }
 
     // Validate currentAmount vs targetAmount
     const targetAmount = data.targetAmount ?? Number(goal.targetAmount);
     const currentAmount = data.currentAmount ?? Number(goal.currentAmount);
     if (currentAmount > targetAmount) {
-      throw new ApiError('Current amount cannot exceed target amount', 400);
+      throw new ApiError(400, 'Current amount cannot exceed target amount');
     }
 
     const updated = await goalsRepository.update(id, {
@@ -80,7 +80,7 @@ export class GoalsService {
 
   async delete(id: number) {
     const goal = await goalsRepository.getById(id);
-    if (!goal) throw new ApiError('Goal not found', 404);
+    if (!goal) throw new ApiError(404, 'Goal not found');
 
     await goalsRepository.delete(id);
     return { success: true };
