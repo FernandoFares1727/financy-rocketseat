@@ -25,8 +25,7 @@ const Transactions: React.FC = () => {
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    categoryId: '',
-    type: 'EXPENSE' as TransactionType
+    categoryId: ''
   });
 
   const handleSort = (field: 'date' | 'amount') => {
@@ -56,7 +55,6 @@ const Transactions: React.FC = () => {
         amount: transaction.amount.toString(),
         date: transaction.date,
         categoryId: transaction.categoryId,
-        type: transaction.type
       });
     } else {
       setEditingTransaction(null);
@@ -65,7 +63,6 @@ const Transactions: React.FC = () => {
         amount: '',
         date: new Date().toISOString().split('T')[0],
         categoryId: categories[0]?.id || '',
-        type: 'EXPENSE'
       });
     }
     setIsModalOpen(true);
@@ -86,6 +83,21 @@ const Transactions: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.description.trim()) {
+      alert('Por favor, preencha a descrição');
+      return;
+    }
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      alert('Por favor, insira um valor válido');
+      return;
+    }
+    if (!formData.categoryId) {
+      alert('Por favor, selecione uma categoria');
+      return;
+    }
+    
     const payload = {
       ...formData,
       amount: parseFloat(formData.amount),
@@ -353,25 +365,14 @@ const Transactions: React.FC = () => {
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Input 
-                  isSelect 
-                  label="Tipo"
-                  value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value as any})}
-                >
-                  <option value="EXPENSE">Despesa</option>
-                  <option value="INCOME">Receita</option>
-                </Input>
-                <Input 
-                  isSelect 
-                  label="Categoria"
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
-                >
-                  {categories
-                    .filter(c => c.type === formData.type)
-                    .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Input>
+                  <Input 
+                    isSelect 
+                    label="Categoria"
+                    value={formData.categoryId}
+                    onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
+                  >
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </Input>
               </div>
               <div className="pt-4 flex gap-3">
                 <Button variant="outline" className="flex-1 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800" type="button" onClick={() => setIsModalOpen(false)}>

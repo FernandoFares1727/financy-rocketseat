@@ -91,13 +91,23 @@ const Goals: React.FC = () => {
       deadline: formData.deadline || undefined,
       color: formData.color
     };
-
-    if (editingGoal) {
-      await editGoal(editingGoal.id, payload);
-    } else {
-      await addGoal(payload);
+    try {
+      if (editingGoal) {
+        await editGoal(editingGoal.id, payload);
+      } else {
+        await addGoal(payload);
+      }
+      setIsModalOpen(false);
+      setError(null);
+    } catch (err: any) {
+      const status = err?.response?.status || err?.status;
+      const message = err?.response?.data?.message || err?.message || 'Erro ao salvar objetivo';
+      if (status === 409 || /already in use|duplicate|unique/i.test(message)) {
+        setError('Já existe um objetivo com esse nome');
+      } else {
+        setError(message);
+      }
     }
-    setIsModalOpen(false);
   };
 
   const formatCurrency = (val: number) => 

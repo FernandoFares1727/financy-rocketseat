@@ -7,12 +7,13 @@ import Input from '../components/ui/Input';
 import { Category, TransactionType } from '../types';
 
 const Categories: React.FC = () => {
-  const { categories, addCategory, editCategory, removeCategory } = useFinance();
+  const { categories, addCategory, editCategory, removeCategory, refreshData, loading } = useFinance();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     color: '#3b82f6',
@@ -33,6 +34,7 @@ const Categories: React.FC = () => {
       setEditingCategory(null);
       setFormData({ name: '', color: '#3b82f6', type: 'EXPENSE', budget: '' });
     }
+    setApiError(null);
     setIsModalOpen(true);
   };
 
@@ -56,12 +58,23 @@ const Categories: React.FC = () => {
       budget: formData.budget ? parseFloat(formData.budget) : undefined
     };
 
-    if (editingCategory) {
-      await editCategory(editingCategory.id, payload);
-    } else {
-      await addCategory(payload);
+    try {
+      if (editingCategory) {
+        await editCategory(editingCategory.id, payload);
+      } else {
+        await addCategory(payload);
+      }
+      setApiError(null);
+      setIsModalOpen(false);
+    } catch (err: any) {
+      const status = err?.response?.status || err?.status;
+      const message = err?.response?.data?.message || err?.message || 'Erro ao salvar categoria';
+      if (status === 409 || /already in use|duplicate|unique/i.test(message)) {
+        setApiError('Já existe uma categoria com esse nome');
+      } else {
+        setApiError(message);
+      }
     }
-    setIsModalOpen(false);
   };
 
   const formatCurrency = (val: number) => 
@@ -74,9 +87,11 @@ const Categories: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Categorias</h2>
           <p className="text-slate-500 dark:text-slate-400">Organize suas movimentações financeiras e defina orçamentos</p>
         </div>
-        <Button onClick={() => handleOpenModal()} icon="fa-plus">
-          Nova Categoria
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => handleOpenModal()} icon="fa-plus">
+            Nova Categoria
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -168,11 +183,16 @@ const Categories: React.FC = () => {
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <button onClick={() => { setIsModalOpen(false); setApiError(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 <i className="fa-solid fa-xmark text-xl"></i>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {apiError && (
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded p-3 text-sm">
+                  {apiError}
+                </div>
+              )}
               <Input 
                 label="Nome da Categoria" 
                 placeholder="Ex: Mercado, Lazer, Saúde..."
@@ -216,7 +236,7 @@ const Categories: React.FC = () => {
               )}
 
               <div className="pt-4 flex gap-3">
-                <Button variant="outline" className="flex-1 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800" type="button" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" className="flex-1 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800" type="button" onClick={() => { setIsModalOpen(false); setApiError(null); }}>
                   Cancelar
                 </Button>
                 <Button className="flex-1" type="submit">
