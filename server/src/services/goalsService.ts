@@ -36,14 +36,21 @@ export class GoalsService {
       throw new ApiError(400, 'Current amount cannot exceed target amount');
     }
 
-    const goal = await goalsRepository.create({
-      name: data.name,
-      targetAmount: data.targetAmount,
-      currentAmount: data.currentAmount,
-      deadline: data.deadline,
-      color: data.color,
-    });
-    return this.formatGoal(goal);
+    try {
+      const goal = await goalsRepository.create({
+        name: data.name,
+        targetAmount: data.targetAmount,
+        currentAmount: data.currentAmount,
+        deadline: data.deadline,
+        color: data.color,
+      });
+      return this.formatGoal(goal);
+    } catch (error: any) {
+      if (error && (error.code === 'P2002' || error.meta?.target?.includes('name'))) {
+        throw new ApiError(409, 'Goal name already in use');
+      }
+      throw error;
+    }
   }
 
   async update(id: number, data: Partial<GoalPayload>) {
@@ -75,7 +82,14 @@ export class GoalsService {
       ...(data.deadline !== undefined && { deadline: data.deadline }),
       ...(data.color && { color: data.color }),
     });
-    return this.formatGoal(updated);
+    try {
+      return this.formatGoal(updated);
+    } catch (error: any) {
+      if (error && (error.code === 'P2002' || error.meta?.target?.includes('name'))) {
+        throw new ApiError(409, 'Goal name already in use');
+      }
+      throw error;
+    }
   }
 
   async delete(id: number) {

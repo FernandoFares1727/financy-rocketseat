@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Transaction, Category, FinancialSummary, SavingsGoal } from '../types';
-import { financeService } from '../services/api';
+import { financeService, BackendTransaction, BackendCategory, BackendGoal } from '../services/api';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -10,7 +10,7 @@ interface FinanceContextType {
   summary: FinancialSummary;
   loading: boolean;
   refreshData: () => Promise<void>;
-  addTransaction: (t: Omit<Transaction, 'id'>) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, 'id'> & Partial<Pick<Transaction,'type'>>) => Promise<void>;
   editTransaction: (id: string, t: Partial<Transaction>) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   addCategory: (c: Omit<Category, 'id'>) => Promise<void>;
@@ -26,7 +26,7 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 /**
  * Map backend category to frontend format
  */
-function mapCategory(cat: any): Category {
+function mapCategory(cat: BackendCategory): Category {
   return {
     id: String(cat.id),
     name: cat.name,
@@ -39,13 +39,13 @@ function mapCategory(cat: any): Category {
 /**
  * Map backend goal to frontend format
  */
-function mapGoal(goal: any): SavingsGoal {
+function mapGoal(goal: BackendGoal): SavingsGoal {
   return {
     id: String(goal.id),
     name: goal.name,
     targetAmount: Number(goal.targetAmount),
     currentAmount: Number(goal.currentAmount),
-    deadline: goal.deadline,
+    deadline: goal.deadline || undefined,
     color: goal.color,
   };
 }
@@ -53,13 +53,35 @@ function mapGoal(goal: any): SavingsGoal {
 /**
  * Map backend transaction to frontend format
  */
-function mapTransaction(tx: any, categoryMap: Map<string, Category>): Transaction {
+function mapTransaction(tx: BackendTransaction, categoryMap: Map<string, Category>): Transaction {
   const cat = categoryMap.get(String(tx.categoryId));
+  
+  // Parse date safely - handle invalid dates
+  let dateOnly: string;
+  try {
+    if (tx.date) {
+      // If it's already in YYYY-MM-DD format, use as-is
+      if (typeof tx.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(tx.date)) {
+        dateOnly = tx.date.split('T')[0];
+      } else {
+        const parsedDate = new Date(tx.date);
+        if (isNaN(parsedDate.getTime())) {
+          throw new Error('Invalid date');
+        }
+        dateOnly = parsedDate.toISOString().split('T')[0];
+      }
+    } else {
+      dateOnly = new Date().toISOString().split('T')[0];
+    }
+  } catch (err) {
+    dateOnly = new Date().toISOString().split('T')[0];
+  }
+  
   return {
     id: String(tx.id),
     description: tx.title, // Backend uses "title", frontend uses "description"
     amount: Number(tx.amount),
-    date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    date: dateOnly,
     categoryId: String(tx.categoryId),
     type: cat?.type || 'EXPENSE',
     category: cat,
@@ -91,19 +113,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setTransactions(mappedTransactions);
       setCategories(mappedCategories);
       setGoals(goalData.map(mapGoal));
-    } catch (error) {
-      console.error('Failed to fetch data', error);
-      // If axios couldn't reach the server (no response), redirect to NotFound page
+    } catch (error: any) {
+      // If cannot reach server, notify user and allow retry instead of redirect
       const e: any = error;
       if (e && (e.isAxiosError === true) && !e.response) {
-        // Use hash-based navigation since app uses HashRouter
-        window.location.hash = '#/notfound';
+        // Non-fatal: show user message and let UI retry
+        // eslint-disable-next-line no-alert
+        alert('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.');
         return;
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLoading, setTransactions, setCategories, setGoals]);
 
   useEffect(() => {
     refreshData();
@@ -125,28 +147,65 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // CRUD Helpers
   const addTransaction = async (t: Omit<Transaction, 'id'>) => {
-    const newTx = await financeService.createTransaction({
-      title: t.description, // Convert description → title for backend
-      amount: t.amount,
-      categoryId: Number(t.categoryId),
-      date: t.date,
-    });
+    // Validate categoryId before proceeding
+    const categoryIdNum = Number(t.categoryId);
+    if (!t.categoryId || isNaN(categoryIdNum) || categoryIdNum <= 0) {
+      throw new Error('Category is required');
+    }
 
+    // Optimistic UI: add temporary transaction to improve perceived UX
+    const tempId = `temp-${Date.now()}`;
     const categoryMap = new Map(categories.map(c => [c.id, c]));
-    const mappedTx = mapTransaction(newTx, categoryMap);
-    setTransactions(prev => [mappedTx, ...prev]);
+    const optimistic: Transaction = {
+      id: tempId,
+      description: t.description,
+      amount: t.amount,
+      date: t.date,
+      categoryId: t.categoryId,
+      type: categoryMap.get(t.categoryId)?.type || 'EXPENSE',
+      category: categoryMap.get(t.categoryId)
+    };
+
+    setTransactions(prev => [optimistic, ...prev]);
+
+    try {
+      // normalize date to UTC midnight to avoid timezone shifts
+      const payloadDate = t.date ? `${t.date}T00:00:00Z` : undefined;
+      const categoryType = categoryMap.get(t.categoryId)?.type || 'EXPENSE';
+      const newTx = await financeService.createTransaction({
+        title: t.description,
+        amount: t.amount,
+        categoryId: categoryIdNum,
+        date: payloadDate,
+        type: categoryType,
+      });
+
+      const mappedTx = mapTransaction(newTx, categoryMap);
+      // replace optimistic with real one
+      setTransactions(prev => prev.map(item => item.id === tempId ? mappedTx : item));
+    } catch (err) {
+      // remove optimistic and inform user
+      setTransactions(prev => prev.filter(item => item.id !== tempId));
+      // eslint-disable-next-line no-alert
+      alert('Falha ao criar transação. Tente novamente.');
+      throw err;
+    }
   };
 
   const editTransaction = async (id: string, t: Partial<Transaction>) => {
     const numId = Number(id);
+    // normalize date to UTC midnight
+    const payloadDate = t.date ? `${t.date}T00:00:00Z` : undefined;
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+    const categoryType = t.categoryId ? categoryMap.get(t.categoryId)?.type : undefined;
     const updated = await financeService.updateTransaction(numId, {
       title: t.description, // Convert description → title for backend
       amount: t.amount,
       categoryId: t.categoryId ? Number(t.categoryId) : undefined,
-      date: t.date,
+      date: payloadDate,
+      type: categoryType as any,
     });
 
-    const categoryMap = new Map(categories.map(c => [c.id, c]));
     const mappedTx = mapTransaction(updated, categoryMap);
     setTransactions(prev =>
       prev.map(item => (item.id === id ? mappedTx : item))

@@ -11,29 +11,41 @@ export const transactionService = {
     if (!tx) throw new ApiError(404, 'Transaction not found');
     return tx;
   },
-  create: async (data: { title: string; amount: number; categoryId: number; date?: string }) => {
+  create: async (data: { title: string; amount: number; categoryId: number; date?: string; type: 'INCOME' | 'EXPENSE' }) => {
     if (data.amount <= 0) throw new ApiError(400, 'Amount must be greater than zero');
 
     const category = await categoryRepository.findById(data.categoryId);
     if (!category) throw new ApiError(400, 'Category not found');
 
-    // Business rule: transaction type must be compatible with category type
-    // We infer transaction type from amount sign: positive = INCOME, negative not allowed per rules
-    // Therefore ensure category type is compatible: amount > 0 and category type INCOME or EXPENSE allowed by domain
+    // Ensure provided type matches category type
+    if (data.type !== category.type) throw new ApiError(400, 'Transaction type does not match category type');
 
-    // For this system we require positive amounts. The category's type is advisory and should be respected by frontend.
+    const parsedDate = data.date ? new Date(data.date) : undefined;
 
-    return transactionRepository.create({
+    const transactionData = {
       title: data.title,
+      type: data.type,
       amount: data.amount,
       categoryId: data.categoryId,
-      date: data.date ? new Date(data.date) : undefined
-    });
+      date: parsedDate
+    };
+    
+    const result = await transactionRepository.create(transactionData);
+    return result;
   },
   update: async (id: number, data: any) => {
-    await transactionService.get(id);
+    const existing = await transactionService.get(id);
     if (data.amount !== undefined && data.amount <= 0) throw new ApiError(400, 'Amount must be greater than zero');
-    return transactionRepository.update(id, { ...data, date: data.date ? new Date(data.date) : undefined });
+
+    // If categoryId or type provided, validate compatibility
+    const newCategoryId = data.categoryId !== undefined ? data.categoryId : existing.categoryId;
+    const category = await categoryRepository.findById(newCategoryId);
+    if (!category) throw new ApiError(400, 'Category not found');
+
+    const newType = data.type !== undefined ? data.type : (existing as any).type;
+    if (newType !== category.type) throw new ApiError(400, 'Transaction type does not match category type');
+
+    return transactionRepository.update(id, { ...data, type: newType, date: data.date ? new Date(data.date) : undefined });
   },
   remove: async (id: number) => {
     await transactionService.get(id);
